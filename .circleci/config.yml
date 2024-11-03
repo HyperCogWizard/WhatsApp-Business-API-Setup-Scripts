@@ -18,7 +18,7 @@ jobs:
       - checkout
 
       - setup_remote_docker:
-          version: latest
+          version:
 #          version: 20.10.8
 
       - run:
