@@ -18,7 +18,8 @@ jobs:
       - checkout
 
       - setup_remote_docker:
-          version: 20.10.8
+          version: latest
+#          version: 20.10.8
 
       - run:
           name: Login to Docker Registry
