@@ -1,471 +1,87 @@
+version: 2.1
 
-# Copyright (c) Facebook, Inc. and its affiliates.
+executors:
+  my-custom-executor:
+    docker:
+      - image: cimg/docker:stable  # Replaced 'u' with a valid Docker image
+        auth:
+          # Ensure you have first added these secrets
+          # Visit app.circleci.com/settings/project/github/HyperCogWizard/WhatsApp-Business-API-Setup-Scripts/environment-variables
+          username: $DOCKER_HUB_USER
+          password: $DOCKER_HUB_PASSWORD
 
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
+jobs:
+  build-and-push:
+    executor: my-custom-executor
+    working_directory: ~/project
+    steps:
+      - checkout
 
-version: '3'
+      - setup_remote_docker:
+          version: 20.10.8
 
-volumes:
-  mysqlData:
-    driver: local
-  whatsappMedia:
-    driver: local
+      - run:
+          name: Login to Docker Registry
+          command: |
+            echo $DOCKER_HUB_PASSWORD | docker login -u $DOCKER_HUB_USER --password-stdin
 
-services:
-  db:
-    platform: linux/x86_64
-    image: mysql:8.0.33
-    command: --default-authentication-plugin=mysql_native_password
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: testpass
-      MYSQL_USER: testuser
-      MYSQL_PASSWORD: testpass
-    expose:
-        - "33060"
-    ports:
-        - "33060:3306"
-    volumes:
-     - mysqlData:/var/lib/mysql
-    cap_drop:
-     - MKNOD
-  waweb:
-    platform: linux/x86_64
-    image: docker.whatsapp.biz/web:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-     - "9090:443"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      WEBAPP_EXTERNAL_PORTS: "9090"
-      WEBAPP_HOSTNAME: "waweb"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "db"
-    cap_drop:
-      - MKNOD
-  master1:
-    platform: linux/x86_64
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      WA_MASTER_NODE: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "master1"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "waweb"
-    cap_drop:
-      - MKNOD
-  master2:
-    platform: linux/x86_64
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      WA_MASTER_NODE: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "master2"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "waweb"
-    cap_drop:
-      - MKNOD
-  wacore1:
-    platform: linux/x86_64
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "wacore1"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "master1"
-    cap_drop:
-      - MKNOD
-  wacore2:
-    platform: linux/x86_64
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "wacore2"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "master1"
-    cap_drop:
-      - MKNOD
-  wacore3:
-    platform: linux/x86_64
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "wacore3"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "master1"
-    cap_drop:
-      - MKNOD
+      - run:
+          name: Build Docker Images
+          command: |
+            docker-compose -f docker-compose.yml build
 
-      
-# Copyright (c) Facebook, Inc. and its affiliates.
+      - run:
+          name: Tag and Push Images
+          command: |
+            services=$(docker-compose -f docker-compose.yml config --services)
+            for service in $services; do
+              image_name="$DOCKER_HUB_USER/${service}:${CIRCLE_SHA1}"
+              docker tag ${service} ${image_name}
+              docker push ${image_name}
+            done
 
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - docker-compose.yml
 
-version: '3'
+  deploy:
+    machine:
+      image: ubuntu-2004:202101-01
+    steps:
+      - attach_workspace:
+          at: ~/project
 
-volumes:
-  whatsappMedia:
-    driver: local
+      - add_ssh_keys:
+          fingerprints:
+            - "YOUR_SSH_KEY_FINGERPRINT"  # Replace with your actual SSH key fingerprint
 
-services:
-  waweb:
-    image: docker.whatsapp.biz/web:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - ${EXTERNAL_WEBAPP_PORT:-9090}:443
-    volumes:
-      - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      # Needs to reflect port exposed above
-      WEBAPP_EXTERNAL_PORTS: ${EXTERNAL_WEBAPP_PORT:-9090}
-      # $EXTERNAL_HOSTNAME should reflect the current machine's hostname
-      # accessible to other containers
-      WEBAPP_HOSTNAME: "${EXTERNAL_HOSTNAME:?$EXTERNAL_HOSTNAME should reflect the current machine's hostname accessible to other containers}"
-      # this is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    cap_drop:
-      - MKNOD
-  wacore:
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - ${EXTERNAL_COREAPP_PORT0:-6250}:6250
-      - ${EXTERNAL_COREAPP_PORT1:-6251}:6251
-      - ${EXTERNAL_COREAPP_PORT2:-6252}:6252
-      - ${EXTERNAL_COREAPP_PORT3:-6253}:6253
-    volumes:
-      - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      # Needs to reflect ports exposed above
-      COREAPP_EXTERNAL_PORTS: ${EXTERNAL_COREAPP_PORT0:-6250},${EXTERNAL_COREAPP_PORT1:-6251},${EXTERNAL_COREAPP_PORT2:-6252},${EXTERNAL_COREAPP_PORT3:-6253}
-      # $EXTERNAL_HOSTNAME should reflect the current machine's hostname
-      # accessible to other containers
-      COREAPP_HOSTNAME: "${EXTERNAL_HOSTNAME:?$EXTERNAL_HOSTNAME should reflect the current machine's hostname accessible to other containers}"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    cap_drop:
-      - MKNOD
-  master:
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_mysql.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      # coreapp may have occupied ports 6250-6253 on the same host
-      - ${EXTERNAL_MASTER_PORT0:-6254}:6250
-      - ${EXTERNAL_MASTER_PORT1:-6255}:6251
-      - ${EXTERNAL_MASTER_PORT2:-6256}:6252
-      - ${EXTERNAL_MASTER_PORT3:-6257}:6253
-    volumes:
-      - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      WA_MASTER_NODE: 1
-      # Represents external ports of this service (master)
-      # Naming is due to legacy reasons
-      COREAPP_EXTERNAL_PORTS: ${EXTERNAL_MASTER_PORT0:-6254},${EXTERNAL_MASTER_PORT1:-6255},${EXTERNAL_MASTER_PORT2:-6256},${EXTERNAL_MASTER_PORT3:-6257}
-      # Represents hostname of the current machine where this service (master) is hosted on
-      # Naming is due to legacy reasons
-      # $EXTERNAL_HOSTNAME should reflect the current machine's hostname
-      # accessible to other containers
-      COREAPP_HOSTNAME: "${EXTERNAL_HOSTNAME:?$EXTERNAL_HOSTNAME should reflect the current machine's hostname accessible to other containers}"
-      # this is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    cap_drop:
-      - MKNOD
+      - run:
+          name: Deploy to On-Premise Server
+          command: |
+            ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST \<< 'EOF'
+              cd /path/to/your/project
+              git pull
 
-# Copyright (c) Facebook, Inc. and its affiliates.
+              echo $DOCKER_HUB_PASSWORD | docker login -u $DOCKER_HUB_USER --password-stdin
 
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
+              services=$(docker-compose config --services)
+              for service in $services; do
+                sed -i "s|image:.*|image: $DOCKER_HUB_USER/${service}:${CIRCLE_SHA1}|g" docker-compose.yml
+              done
 
-version: '3'
+              docker-compose down
+              docker-compose pull
+              docker-compose up -d
+            EOF
 
-volumes:
-  postgresData:
-    driver: local
-  whatsappMedia:
-    driver: local
-
-services:
-  db:
-    image: postgres:13.8
-    command: "-p 3306 -N 500"
-    restart: always
-    environment:
-      POSTGRES_PASSWORD: testpass
-      POSTGRES_USER: root
-    expose:
-        - "33060"
-    ports:
-        - "33060:3306"
-    volumes:
-     - postgresData:/var/lib/postgresql/data
-    cap_drop:
-     - MKNOD
-  waweb:
-    image: docker.whatsapp.biz/web:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    command: ["/opt/whatsapp/bin/wait_on_postgres.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-     - "9090:443"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      WEBAPP_EXTERNAL_PORTS: "9090"
-      WEBAPP_HOSTNAME: "waweb"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "db"
-    cap_drop:
-      - MKNOD
-  master1:
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_postgres.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      WA_MASTER_NODE: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "master1"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "waweb"
-    cap_drop:
-      - MKNOD
-  master2:
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_postgres.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      WA_MASTER_NODE: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "master2"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "waweb"
-    cap_drop:
-      - MKNOD
-  wacore1:
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_postgres.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "wacore1"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "master1"
-    cap_drop:
-      - MKNOD
-  wacore2:
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_postgres.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "wacore2"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "master1"
-    cap_drop:
-      - MKNOD
-  wacore3:
-    image: docker.whatsapp.biz/coreapp:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.41.2 docker-compose <command> <options>)}
-    restart: unless-stopped
-    command: ["/opt/whatsapp/bin/wait_on_postgres.sh", "/opt/whatsapp/bin/launch_within_docker.sh"]
-    ports:
-      - "6250-6253"
-    volumes:
-     - whatsappMedia:/usr/local/wamedia
-    env_file:
-      - db.env
-    environment:
-      WA_APP_MULTICONNECT: 1
-      COREAPP_EXTERNAL_PORTS: "6250,6251,6252,6253"
-      COREAPP_HOSTNAME: "wacore3"
-      # This is the version of the docker templates being used to run WhatsApp Business API
-      WA_RUNNING_ENV_VERSION: v2.2.3
-      ORCHESTRATION: DOCKER-COMPOSE
-    depends_on:
-      - "master1"
-    cap_drop:
-      - MKNOD
-
-      
-      # Copyright (c) Facebook, Inc. and its affiliates.
-
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
-version: '3'
-
-# On a spare machine, run docker-compose -f monitoring-compose.yml up -d
-volumes:
-  whatsappPrometheusData:
-    driver: local
-  whatsappGrafanaData:
-    driver: local
-
-services:
-  mysqld-exporter:
-    image: prom/mysqld-exporter:v0.14.0
-    restart: always
-    ports:
-      - 9104:9104
-    environment:
-      DATA_SOURCE_NAME: "${WA_DB_USERNAME:?Missing env WA_DB_USERNAME}:${WA_DB_PASSWORD:?Missing env WA_DB_PASSWORD}@(${WA_DB_HOSTNAME:?Missing env WA_DB_HOSTNAME}:${WA_DB_PORT:?Missing env WA_DB_PORT})/"
-  prometheus:
-    platform: linux/x86_64
-    image: docker.whatsapp.biz/prometheus:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.31.4 docker-compose <command> <options>)}
-    user: "root"
-    restart: always
-    ports:
-      - 9090:9090
-    volumes:
-      - whatsappPrometheusData:/prometheus-data
-    environment:
-      WA_WEB_ENDPOINT: ${WA_WEB_ENDPOINT:?Missing env WA_WEB_ENDPOINT which is the web endpoint of enterprise client WA_ENT_HOSTNAME:WA_ENT_PORT}
-      WA_WEB_USERNAME: ${WA_WEB_USERNAME:?Missing env WA_WEB_USERNAME which is the username for /v1/users/login}
-      WA_WEB_PASSWORD: ${WA_WEB_PASSWORD:?Missing env WA_WEB_PASSWORD which is the password for /v1/users/login}
-      WA_MYSQLD_EXPORTER_ENDPOINT: 'mysqld-exporter:9104'
-      WA_DB_NODE_EXPORTER_ENDPOINT: ${WA_DB_HOSTNAME:?Missing env WA_DB_HOSTNAME for mysql server monitoring, start host-exporter-compose.yml on mysql server to expose metrics. Make sure prometheus could access port 9100 and 8080 }:9100
-      WA_CORE_ENDPOINT: ${WA_CORE_ENDPOINT:?Missing env WA_CORE_ENDPOINT for host and container monitoring, start host-exporter-compose.yml on biz client machine to expose metrics. Make sure prometheus could access port 9100 and 8080 }
-      WA_NODE_EXPORTER_PORT: ${WA_NODE_EXPORTER_PORT:-9100}
-      WA_CADVISOR_PORT: ${WA_CADVISOR_PORT:-8080}
-      WA_PROMETHEUS_STORAGE_TSDB_RETENTION: ${WA_PROMETHEUS_STORAGE_TSDB_RETENTION:-15d}
-    depends_on:
-      - 'mysqld-exporter'
-  grafana:
-    platform: linux/x86_64
-    image: docker.whatsapp.biz/grafana:v${WA_API_VERSION:?Run docker-compose with env var WA_API_VERSION (ex. WA_API_VERSION=2.31.4 docker-compose <command> <options>)}
-    restart: always
-    ports:
-      - 3000:3000
-    volumes:
-      - whatsappGrafanaData:/var/lib/grafana
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?Missing env GF_SECURITY_ADMIN_PASSWORD for grafana admin password}
-      WA_PROMETHEUS_ENDPOINT: ${WA_PROMETHEUS_ENDPOINT:-http://prometheus:9090}
-    depends_on:
-      - 'prometheus'
+workflows:
+  build-and-deploy:
+    jobs:
+      - build-and-push
+      - deploy:
+          requires:
+            - build-and-push
+          filters:
+            branches:
+              only: main  # Adjust to your deployment branch if different
